@@ -1,0 +1,585 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>AI Multi-Cancer Detection</title>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --blue:       #1251c5;
+      --blue-mid:   #1a63e8;
+      --blue-light: #e8f0fe;
+      --blue-pale:  #f0f6ff;
+      --red:        #d93025;
+      --red-bg:     #fce8e6;
+      --green:      #188038;
+      --green-bg:   #e6f4ea;
+      --text:       #1a1a2e;
+      --muted:      #5f6368;
+      --border:     #dae3f0;
+      --white:      #ffffff;
+      --radius:     14px;
+      --shadow:     0 2px 12px rgba(18,81,197,.10);
+    }
+
+    body {
+      font-family: 'DM Sans', sans-serif;
+      background: linear-gradient(145deg, #dbeafe 0%, #eff6ff 60%, #e0f2fe 100%);
+      min-height: 100vh;
+      padding: 24px 16px 48px;
+      color: var(--text);
+    }
+
+    /* ── WRAPPER ── */
+    .app { max-width: 900px; margin: auto; }
+
+    /* ── HEADER ── */
+    header {
+      background: var(--blue);
+      border-radius: var(--radius) var(--radius) 0 0;
+      padding: 20px 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    .hd-left { display: flex; align-items: center; gap: 14px; }
+    .hd-icon {
+      background: rgba(255,255,255,.15);
+      border-radius: 12px;
+      width: 52px; height: 52px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .hd-icon svg { width: 30px; height: 30px; fill: white; }
+    .hd-title { color: white; font-size: 22px; font-weight: 700; line-height: 1.2; }
+    .hd-sub   { color: rgba(255,255,255,.75); font-size: 13px; margin-top: 2px; }
+    .hd-date  {
+      background: rgba(255,255,255,.15);
+      border-radius: 10px;
+      padding: 8px 14px;
+      color: white;
+      font-size: 13px;
+      text-align: right;
+      white-space: nowrap;
+    }
+    .hd-date span { display: block; font-weight: 600; font-size: 14px; margin-top: 2px; }
+
+    /* ── UPLOAD CARD ── */
+    .upload-card {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-top: none;
+      padding: 28px;
+      display: flex;
+      gap: 16px;
+      flex-wrap: wrap;
+      align-items: flex-end;
+    }
+    .upload-card .field { flex: 1; min-width: 180px; }
+    .upload-card label { display: block; font-size: 13px; font-weight: 600; color: var(--muted); margin-bottom: 6px; letter-spacing: .3px; }
+    .upload-card select,
+    .upload-card input[type="file"] {
+      width: 100%;
+      border: 1.5px solid var(--border);
+      border-radius: 10px;
+      padding: 10px 14px;
+      font-family: inherit;
+      font-size: 14px;
+      color: var(--text);
+      background: var(--blue-pale);
+      outline: none;
+      transition: border .2s;
+    }
+    .upload-card select:focus,
+    .upload-card input[type="file"]:focus { border-color: var(--blue-mid); }
+    .btn-predict {
+      background: var(--blue);
+      color: white;
+      border: none;
+      border-radius: 10px;
+      padding: 11px 28px;
+      font-family: inherit;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      transition: background .2s, transform .1s;
+      white-space: nowrap;
+      height: 44px;
+    }
+    .btn-predict:hover  { background: var(--blue-mid); }
+    .btn-predict:active { transform: scale(.97); }
+
+    /* ── LOADING ── */
+    #loading {
+      display: none;
+      text-align: center;
+      padding: 36px;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-top: none;
+    }
+    .spinner-ring {
+      width: 48px; height: 48px;
+      border: 5px solid var(--blue-light);
+      border-top-color: var(--blue);
+      border-radius: 50%;
+      animation: spin .8s linear infinite;
+      margin: 0 auto 14px;
+    }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    #loading p { color: var(--muted); font-size: 14px; font-weight: 500; }
+
+    /* ── RESULT SECTION ── */
+    #results {
+      display: none;
+      animation: fadeUp .4s ease both;
+    }
+    @keyframes fadeUp {
+      from { opacity:0; transform: translateY(18px); }
+      to   { opacity:1; transform: translateY(0); }
+    }
+
+    /* ── IMAGE GRID ── */
+    .img-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-top: none;
+    }
+    .img-panel { border: 1px solid var(--border); margin: -1px; }
+    .img-panel-head {
+      background: var(--blue);
+      padding: 10px 16px;
+      display: flex; align-items: center; gap: 8px;
+      color: white; font-size: 13px; font-weight: 600;
+    }
+    .img-panel-head svg { width: 16px; height: 16px; fill: white; opacity: .85; }
+    .img-panel-body { padding: 16px; background: var(--blue-pale); }
+    .img-panel-body img {
+      width: 100%; display: block; border-radius: 10px;
+      box-shadow: 0 4px 16px rgba(18,81,197,.12);
+      min-height: 200px; object-fit: cover;
+      background: #c8d8f0;
+    }
+
+    /* gradient bar legend */
+    .gradcam-wrap { position: relative; }
+    .legend {
+      position: absolute; right: 10px; top: 50%; transform: translateY(-50%);
+      display: flex; flex-direction: column; align-items: center; gap: 4px;
+    }
+    .legend-bar {
+      width: 14px; height: 90px;
+      border-radius: 8px;
+      background: linear-gradient(to bottom, #d93025 0%, #fbbc04 40%, #34a853 70%, #1a73e8 100%);
+    }
+    .legend-label { font-size: 10px; font-weight: 600; color: var(--muted); }
+
+    /* ── LOWER GRID ── */
+    .lower-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0;
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-top: none;
+    }
+    .lower-panel { border: 1px solid var(--border); margin: -1px; padding: 22px 22px 20px; }
+
+    /* Prediction result */
+    .panel-head {
+      background: var(--blue);
+      padding: 10px 16px;
+      display: flex; align-items: center; gap: 8px;
+      color: white; font-size: 13px; font-weight: 600;
+      margin: -22px -22px 18px;
+      border-radius: 0;
+    }
+    .panel-head svg { width: 16px; height: 16px; fill: white; opacity: .85; }
+
+    .detection-box {
+      background: var(--red-bg);
+      border: 1.5px solid #f28b82;
+      border-radius: 10px;
+      padding: 14px 16px;
+      display: flex; align-items: center; gap: 12px;
+      margin-bottom: 16px;
+    }
+    .detection-box.no-cancer { background: var(--green-bg); border-color: #81c995; }
+    .det-icon {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: var(--red); display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .det-icon.ok { background: var(--green); }
+    .det-icon svg { width: 20px; height: 20px; fill: white; }
+    .det-label { font-size: 22px; font-weight: 800; color: var(--red); line-height: 1.1; }
+    .det-label.ok { color: var(--green); }
+    .det-type {
+      display: inline-block; margin-top: 4px;
+      background: rgba(217,48,37,.12); color: var(--red);
+      border-radius: 6px; padding: 2px 10px; font-size: 13px; font-weight: 600;
+    }
+    .det-type.ok { background: rgba(24,128,56,.12); color: var(--green); }
+
+    .conf-row { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; }
+    .conf-icon { width: 28px; height: 28px; flex-shrink: 0; }
+    .conf-label { font-size: 13px; font-weight: 600; color: var(--muted); }
+    .conf-value { font-size: 28px; font-weight: 800; color: var(--blue); margin-top: 2px; }
+    .conf-bar-wrap {
+      background: var(--blue-light);
+      border-radius: 99px; height: 8px; overflow: hidden; margin-top: 8px; margin-bottom: 14px;
+    }
+    .conf-bar {
+      height: 100%; border-radius: 99px;
+      background: linear-gradient(90deg, var(--blue) 0%, #4285f4 100%);
+      transition: width .8s cubic-bezier(.4,0,.2,1);
+      width: 0%;
+    }
+
+    .ai-note {
+      background: var(--green-bg);
+      border: 1px solid #81c995;
+      border-radius: 10px;
+      padding: 10px 14px;
+      display: flex; align-items: flex-start; gap: 10px;
+    }
+    .ai-note svg { width: 18px; height: 18px; fill: var(--green); flex-shrink: 0; margin-top: 1px; }
+    .ai-note p { font-size: 12.5px; color: #155724; line-height: 1.5; }
+    .ai-note strong { display: block; font-size: 13px; margin-bottom: 2px; }
+
+    /* Analysis Details */
+    .detail-row {
+      display: flex; align-items: center; justify-content: space-between;
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 14px;
+    }
+    .detail-row:last-child { border-bottom: none; }
+    .detail-key {
+      display: flex; align-items: center; gap: 8px;
+      color: var(--muted); font-weight: 500;
+    }
+    .detail-key svg { width: 16px; height: 16px; fill: var(--muted); }
+    .detail-val { font-weight: 600; color: var(--text); text-align: right; font-size: 13.5px; }
+
+    /* ── IMPORTANT NOTE FOOTER ── */
+    .imp-note {
+      background: var(--white);
+      border: 1px solid var(--border);
+      border-top: none;
+      border-radius: 0 0 var(--radius) var(--radius);
+      padding: 14px 22px;
+      display: flex; align-items: flex-start; gap: 12px;
+    }
+    .note-icon {
+      width: 32px; height: 32px; border-radius: 50%;
+      background: var(--blue); display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0; margin-top: 1px;
+    }
+    .note-icon svg { width: 18px; height: 18px; fill: white; }
+    .imp-note strong { font-size: 14px; font-weight: 700; color: var(--text); display: block; margin-bottom: 3px; }
+    .imp-note p { font-size: 13px; color: var(--muted); line-height: 1.5; }
+
+    /* ── RESPONSIVE ── */
+    @media (max-width: 620px) {
+      .img-grid, .lower-grid { grid-template-columns: 1fr; }
+      header { flex-direction: column; align-items: flex-start; }
+      .hd-date { text-align: left; }
+    }
+  </style>
+</head>
+<body>
+<div class="app">
+
+  <!-- HEADER -->
+  <header>
+    <div class="hd-left">
+      <div class="hd-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-1 14H9V8h2v8zm4 0h-2V8h2v8z"/></svg>
+      </div>
+      <div>
+        <div class="hd-title">AI Multi-Cancer Detection</div>
+        <div class="hd-sub" id="hd-sub">Deep Learning-Based Medical Image Analysis</div>
+      </div>
+    </div>
+    <div class="hd-date">
+      Analysis Date
+      <span id="hd-datetime">—</span>
+    </div>
+  </header>
+
+  <!-- UPLOAD FORM -->
+  <div class="upload-card">
+    <div class="field">
+      <label>Cancer Type</label>
+      <select id="type-select">
+        <option value="brain">Brain MRI</option>
+        <option value="lung">Lung X-ray</option>
+      </select>
+    </div>
+    <div class="field">
+      <label>Upload Medical Image</label>
+      <input type="file" id="img-input" accept="image/*" required />
+    </div>
+    <button class="btn-predict" id="predict-btn" onclick="runPredict()">Predict Cancer</button>
+  </div>
+
+  <!-- LOADING -->
+  <div id="loading">
+    <div class="spinner-ring"></div>
+    <p>Analyzing medical image…</p>
+  </div>
+
+  <!-- RESULTS -->
+  <div id="results">
+
+    <!-- IMAGE PANELS -->
+    <div class="img-grid">
+      <div class="img-panel">
+        <div class="img-panel-head">
+          <svg viewBox="0 0 24 24"><path d="M21 19V5c0-1.1-.9-2-2-2H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2zM8.5 13.5l2.5 3.01L14.5 12l4.5 6H5l3.5-4.5z"/></svg>
+          Original X-ray / MRI
+        </div>
+        <div class="img-panel-body">
+          <img id="original-img" alt="Original image" />
+        </div>
+      </div>
+      <div class="img-panel">
+        <div class="img-panel-head">
+          <svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 100 20A10 10 0 0012 2zm0 18a8 8 0 110-16 8 8 0 010 16zm-1-6h2v2h-2zm0-8h2v6h-2z"/></svg>
+          AI Attention (Grad-CAM)
+        </div>
+        <div class="img-panel-body">
+          <div class="gradcam-wrap">
+            <img id="gradcam-img" alt="Grad-CAM heatmap" />
+            <div class="legend">
+              <div class="legend-label">High</div>
+              <div class="legend-bar"></div>
+              <div class="legend-label">Low</div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- LOWER PANELS -->
+    <div class="lower-grid">
+
+      <!-- Prediction Result -->
+      <div class="lower-panel">
+        <div class="panel-head">
+          <svg viewBox="0 0 24 24"><path d="M9 17h2v-2H9v2zm4 0h2v-2h-2v2zM12 2A10 10 0 002 12a10 10 0 0010 10 10 10 0 0010-10A10 10 0 0012 2zm0 18a8 8 0 010-16 8 8 0 010 16zM9 11h2V9H9v2zm4 0h2V9h-2v2z"/></svg>
+          Prediction Result
+        </div>
+
+        <div class="detection-box" id="detection-box">
+          <div class="det-icon" id="det-icon">
+            <svg id="det-icon-svg" viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+          </div>
+          <div>
+            <div class="det-label" id="det-label">Cancer Detected</div>
+            <div class="det-type" id="det-type">Diagnosis: Loading…</div>
+          </div>
+        </div>
+
+        <div class="conf-row">
+          <svg class="conf-icon" viewBox="0 0 24 24" fill="none" stroke="#1251c5" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <div>
+            <div class="conf-label">Confidence Score</div>
+            <div class="conf-value" id="conf-value">—</div>
+          </div>
+        </div>
+        <div class="conf-bar-wrap"><div class="conf-bar" id="conf-bar"></div></div>
+
+        <div class="ai-note">
+          <svg viewBox="0 0 24 24"><path d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>
+          <p><strong>This is an AI-assisted prediction.</strong>Please consult a qualified radiologist for confirmation.</p>
+        </div>
+      </div>
+
+      <!-- Analysis Details -->
+      <div class="lower-panel">
+        <div class="panel-head">
+          <svg viewBox="0 0 24 24"><path d="M19 3H5c-1.1 0-2 .9-2 2v14c0 1.1.9 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm-5 14H7v-2h7v2zm3-4H7v-2h10v2zm0-4H7V7h10v2z"/></svg>
+          Analysis Details
+        </div>
+
+        <div class="detail-row">
+          <div class="detail-key"><svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>Patient ID</div>
+          <div class="detail-val" id="d-pid">—</div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-key"><svg viewBox="0 0 24 24"><path d="M19 3h-1V1h-2v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2zm0 16H5V8h14v11zM7 10h5v5H7z"/></svg>Date</div>
+          <div class="detail-val" id="d-date">—</div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-key"><svg viewBox="0 0 24 24"><path d="M11.99 2C6.47 2 2 6.48 2 12s4.47 10 9.99 10C17.52 22 22 17.52 22 12S17.52 2 11.99 2zM12 20c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm.5-13H11v6l5.25 3.15.75-1.23-4.5-2.67V7z"/></svg>Time</div>
+          <div class="detail-val" id="d-time">—</div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-key"><svg viewBox="0 0 24 24"><path d="M17 12h-5v5h5v-5zM16 1v2H8V1H6v2H5c-1.11 0-1.99.9-1.99 2L3 19c0 1.1.89 2 2 2h14c1.1 0 2-.9 2-2V5c0-1.1-.9-2-2-2h-1V1h-2zm3 18H5V8h14v11z"/></svg>View</div>
+          <div class="detail-val" id="d-view">—</div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-key"><svg viewBox="0 0 24 24"><path d="M17 12h-5v5h5v-5zM3 3v18h18V3H3zm16 16H5V5h14v14z"/></svg>Hospital</div>
+          <div class="detail-val" id="d-hospital">—</div>
+        </div>
+        <div class="detail-row">
+          <div class="detail-key"><svg viewBox="0 0 24 24"><path d="M12 12c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm0 2c-2.67 0-8 1.34-8 4v2h16v-2c0-2.66-5.33-4-8-4z"/></svg>Patient</div>
+          <div class="detail-val" id="d-patient">—</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- IMPORTANT NOTE -->
+    <div class="imp-note">
+      <div class="note-icon">
+        <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>
+      </div>
+      <div>
+        <strong>Important Note</strong>
+        <p>This AI model is trained on a large dataset of medical images to assist in detection. It is not a substitute for professional medical advice, diagnosis, or treatment.</p>
+      </div>
+    </div>
+
+  </div><!-- /results -->
+
+</div><!-- /app -->
+
+<script>
+  // Live date-time in header
+  function updateDateTime() {
+    const now = new Date();
+    const dd   = String(now.getDate()).padStart(2,'0');
+    const mm   = String(now.getMonth()+1).padStart(2,'0');
+    const yyyy = now.getFullYear();
+    let hh = now.getHours(), min = String(now.getMinutes()).padStart(2,'0');
+    const ampm = hh >= 12 ? 'PM' : 'AM';
+    hh = hh % 12 || 12;
+    document.getElementById('hd-datetime').textContent =
+      `${dd}-${mm}-${yyyy} ${String(hh).padStart(2,'0')}:${min} ${ampm}`;
+  }
+  updateDateTime();
+  setInterval(updateDateTime, 30000);
+
+  // Preview original image when selected
+  document.getElementById('img-input').addEventListener('change', function() {
+    const file = this.files[0];
+    if (file) {
+      const url = URL.createObjectURL(file);
+      document.getElementById('original-img').src = url;
+    }
+  });
+
+  async function runPredict() {
+    const fileInput = document.getElementById('img-input');
+    if (!fileInput.files.length) { alert('Please select an image first.'); return; }
+
+    const type = document.getElementById('type-select').value;
+
+    // Update subtitle
+    document.getElementById('hd-sub').textContent =
+      type === 'brain'
+        ? 'Deep Learning-Based Brain MRI Analysis'
+        : 'Deep Learning-Based Lung X-ray Analysis';
+
+    const formData = new FormData();
+    formData.append('image', fileInput.files[0]);
+    formData.append('type', type);
+
+    document.getElementById('loading').style.display = 'block';
+    document.getElementById('results').style.display = 'none';
+
+    try {
+      const res  = await fetch('http://127.0.0.1:5000/predict', { method: 'POST', body: formData });
+      const data = await res.json();
+
+      const isCancer = !['notumor','normal'].includes(data.prediction.toLowerCase());
+
+      // Detection box
+      const box   = document.getElementById('detection-box');
+      const icon  = document.getElementById('det-icon');
+      const label = document.getElementById('det-label');
+      const dtype = document.getElementById('det-type');
+
+      if (isCancer) {
+        box.className   = 'detection-box';
+        icon.className  = 'det-icon';
+        label.className = 'det-label';
+        dtype.className = 'det-type';
+        label.textContent = 'Cancer Detected';
+        dtype.textContent = 'Diagnosis: ' + data.prediction;
+        icon.innerHTML = '<svg viewBox="0 0 24 24"><path fill="white" d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm1 15h-2v-2h2v2zm0-4h-2V7h2v6z"/></svg>';
+      } else {
+        box.className   = 'detection-box no-cancer';
+        icon.className  = 'det-icon ok';
+        label.className = 'det-label ok';
+        dtype.className = 'det-type ok';
+        label.textContent = 'No Cancer Detected';
+        dtype.textContent = 'Result: Normal';
+        icon.innerHTML = '<svg viewBox="0 0 24 24"><path fill="white" d="M9 16.17L4.83 12l-1.42 1.41L9 19 21 7l-1.41-1.41z"/></svg>';
+      }
+
+      // Confidence
+      const pct = (data.confidence ).toFixed(2) + '%';
+      document.getElementById('conf-value').textContent = pct;
+      setTimeout(() => {
+        document.getElementById('conf-bar').style.width = pct;
+      }, 100);
+
+      // Grad-CAM
+      document.getElementById('gradcam-img').src =
+        'http://127.0.0.1:5000/' + data.gradcam + '?t=' + Date.now();
+      
+      // Recall score (if available)
+      if (data.recall) {
+        const recallRow = document.createElement('div');
+        recallRow.className = 'conf-row';
+        recallRow.innerHTML = `
+          <svg class="conf-icon" viewBox="0 0 24 24" fill="#34a853" stroke="#34a853" stroke-width="2">
+            <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"/>
+          </svg>
+          <div>
+            <div class="conf-label">Recall Score</div>
+            <div class="conf-value" id="recall-value">${(data.recall * 100).toFixed(2)}%</div>
+          </div>  
+        `;
+        document.querySelector('.lower-panel').appendChild(recallRow);
+      }
+
+      // Analysis details — fill with available data or sensible defaults
+      const now  = new Date();
+      const dd   = String(now.getDate()).padStart(2,'0');
+      const mm   = String(now.getMonth()+1).padStart(2,'0');
+      const yyyy = now.getFullYear();
+      let hh = now.getHours(), min = String(now.getMinutes()).padStart(2,'0');
+      const ampm = hh >= 12 ? 'PM' : 'AM';
+      hh = hh % 12 || 12;
+
+      document.getElementById('d-pid').textContent      = data.patient_id   || '—';
+      document.getElementById('d-date').textContent     = data.date         || `${dd}-${mm}-${yyyy}`;
+      document.getElementById('d-time').textContent     = data.time         || `${String(hh).padStart(2,'0')}:${min} ${ampm}`;
+      document.getElementById('d-view').textContent     = data.view         || (type === 'lung' ? 'CHEST PA' : 'AXIAL MRI');
+      document.getElementById('d-hospital').textContent = data.hospital     || '—';
+      document.getElementById('d-patient').textContent  = data.patient_name || '—';
+
+      document.getElementById('loading').style.display = 'none';
+      document.getElementById('results').style.display = 'block';
+
+    } catch (err) {
+      document.getElementById('loading').style.display = 'none';
+      alert('Error connecting to backend at http://127.0.0.1:5000/predict\n\n' + err.message);
+      console.error(err);
+    }
+  }
+</script>
+</body>
+</html>
